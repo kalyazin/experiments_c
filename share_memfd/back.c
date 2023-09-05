@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <linux/memfd.h>
 
-static int SIZE = 300;
+static int SIZE = 4096;
 static char* SERVER_SOCKET_PATH = "test_socket";
 
 int main() {
@@ -68,7 +68,7 @@ int main() {
   printf("memfd_map: %p\n", memfd_map);
 
   for (int i = 0; i < 10; i++) {
-    printf("%d: Message: %s\n", i, memfd_map);
+    printf("[%ld] %d: Message: %s\n", syscall(__NR_gettid), i, memfd_map);
     sleep(1);
   }
 
