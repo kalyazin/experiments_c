@@ -67,10 +67,13 @@ int main() {
   }
   printf("memfd_map: %p\n", memfd_map);
 
+  sleep(5);
+#if 1
   for (int i = 0; i < 10; i++) {
     printf("[%ld] %d: Message: %s\n", syscall(__NR_gettid), i, memfd_map);
     sleep(1);
   }
+#endif
 
   munmap(memfd_map, SIZE);
   close(sockfd);

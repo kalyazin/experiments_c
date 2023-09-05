@@ -100,17 +100,22 @@ int setup_uffd(void *addr, size_t size)
 
 	/* feature negotiation */
 	struct uffdio_api uffdio_api;
+	memset(&uffdio_api, 0, sizeof(struct uffdio_api));
 	uffdio_api.api = UFFD_API;
-	uffdio_api.features = 0;
+	uffdio_api.features = UFFD_FEATURE_MISSING_SHMEM;
 	if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1) {
 		perror("ioctl(UFFDIO_API)");
 		return -1;
 	}
 
+	printf("ioctls = %x\n", uffdio_api.ioctls);
+
 	/* Register address range */
 	struct uffdio_register uffdio_register;
+	memset(&uffdio_register, 0, sizeof(struct uffdio_register));
 	uffdio_register.range.start = (unsigned long)addr;
 	uffdio_register.range.len = size;
+	printf("start = %p, len = %d\n", uffdio_register.range.start, uffdio_register.range.len);
 	/* Just get events about a page missing */
 	uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING | UFFDIO_REGISTER_MODE_MINOR;
 	if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1) {
@@ -130,11 +135,19 @@ int setup_uffd(void *addr, size_t size)
 }
 
 int main() {
+#if 1
   int memfd = syscall(SYS_memfd_create, "memfd_test", 0);
   if (memfd < 0) {
     printf("memfd failed\n");
     return 1;
   }
+#else
+      int memfd = open("filename", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    if (memfd == -1) {
+        perror("Error opening file");
+        return 1;
+    }
+#endif
   printf("memfd: %d\n", memfd);
 
   int r = ftruncate(memfd, SIZE);
@@ -148,6 +161,7 @@ int main() {
     printf("memfd map failed\n");
     return 1;
   }
+//  memfd_map = malloc(SIZE);
   printf("memfd_map: %p\n", memfd_map);
   //syscall(SYS_getrandom, (void *)memfd_map, SIZE, 0);
 
@@ -205,7 +219,7 @@ int main() {
     sleep(1000);
   }
   */
-  sleep(5);
+  sleep(10);
   //printf("[%ld]: Message: %s\n", syscall(__NR_gettid),  memfd_map);
   for (int i = 0; i < 10; ++i) {
 		putchar(memfd_map[i]);
