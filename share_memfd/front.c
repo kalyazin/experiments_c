@@ -57,18 +57,32 @@ static void *pf_handler(void *args)
 		printf("[%ld] address: %p\n", tid, (void *)msg.arg.pagefault.address);
 		printf("[%ld] thread: %d\n", tid, msg.arg.pagefault.feat.ptid);
 
-		struct uffdio_copy uffdio_copy = {
-			.dst = msg.arg.pagefault.address & ~(4095),
-			.src = (unsigned long)data,
-			.len = 4096,
-			.mode = 0,
-			.copy = 0
-		};
+		unsigned long dst = msg.arg.pagefault.address & ~(4095);
 
-		printf("[%ld] Serving page fault with: '%s'\n", tid, data);
-		if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1) {
-			perror("[PF handler] ioctl(UFFDIO_COPY)");
-			exit(EXIT_FAILURE);
+		if (msg.arg.pagefault.flags & UFFD_PAGEFAULT_FLAG_MINOR) {
+			printf("[%ld] Minor fault\n", tid);
+			struct uffdio_range range = { .start = dst, .len = 4096 };
+			struct uffdio_continue uffdio_continue = { .range = range };
+			if (ioctl(uffd, UFFDIO_CONTINUE, &uffdio_continue) == -1) {
+				perror("[PF handler] ioctl(UFFDIO_CONTINUE)");
+				exit(EXIT_FAILURE);
+			}
+			printf("[%ld] Setup page tables for %lld bytes", tid, uffdio_continue.mapped);
+		} else {
+			printf("[%ld] Major fault\n", tid);
+			struct uffdio_copy uffdio_copy = {
+				.dst = dst,
+				.src = (unsigned long)data,
+				.len = 4096,
+				.mode = 0,
+				.copy = 0
+			};
+
+			printf("[%ld] Serving page fault with: '%s'\n", tid, data);
+			if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1) {
+				perror("[PF handler] ioctl(UFFDIO_COPY)");
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 }
@@ -192,7 +206,10 @@ int main() {
   }
   */
   sleep(5);
-  printf("[%ld]: Message: %s\n", syscall(__NR_gettid),  memfd_map);
+  //printf("[%ld]: Message: %s\n", syscall(__NR_gettid),  memfd_map);
+  for (int i = 0; i < 10; ++i) {
+		putchar(memfd_map[i]);
+  }
   sleep(10);
 
   munmap(memfd_map, SIZE);
